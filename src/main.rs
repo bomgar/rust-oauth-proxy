@@ -5,6 +5,5 @@ mod oauth;
 use oauth::hello;
 
 fn main() {
-    println!("{}", hello());
+  println!("{}", hello());
 }
-

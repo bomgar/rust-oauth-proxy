@@ -8,7 +8,7 @@ pub fn build_signature_base_string(method: &str, base_url: &str) -> String {
 
   let encoded_base_url = url_encode(base_url);
   let base_string = format!("{}&{}", method.to_uppercase(), encoded_base_url);
-  return base_string;
+  base_string
 }
 
 fn url_encode(string: &str) -> String {
@@ -18,7 +18,7 @@ fn url_encode(string: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-   use super::*;
+  use super::*;
 
   #[test]
   fn build_a_signature_base_string() {
