@@ -1,7 +1,7 @@
 [package]
-name = "rust-hello-world"
+name = "rust-oauth-proxy"
 version = "0.1.0"
-authors = ["Patrick Haun <patrick.haun@immobilienscout24.de>"]
+authors = ["Patrick Haun <bomgar85@googlemail.com>"]
 
 [dependencies]
 url = "1.0"
