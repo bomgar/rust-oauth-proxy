@@ -1,5 +1,15 @@
 use url::form_urlencoded;
 
+#[derive(Debug, PartialEq)]
+pub struct OAuthHeaders<'a> {
+  oauth_version: &'a str,
+  oauth_signature_method: &'a str,
+  oauth_nonce: &'a str,
+  oauth_timestamp: &'a str,
+  oauth_consumer_key: &'a str,
+  oauth_signature: &'a str
+}
+
 pub fn hello() -> &'static str {
   return "hello";
 }
@@ -49,6 +59,20 @@ mod tests {
     let signature =
       build_signature_base_string("GET", "https://test.test.org/moep", &request_parameters);
     assert_eq!(signature, "GET&https%3A%2F%2Ftest.test.org%2Fmoep&a%3D2%26b%3D1");
+  }
+
+
+  #[test]
+  fn should_build_correct_signature() {
+    let expected_oauth_headers = OAuthHeaders {
+      oauth_version: "1.0",
+      oauth_signature_method: "HMAC-SHA1",
+      oauth_nonce: "A7Dl0UO1Yl2I8EA",
+      oauth_timestamp: "1475676416",
+      oauth_consumer_key: "hello-key",
+      oauth_signature: "VAhLqfwl4qsN%2F13vYotEdMWDjH0%3D"
+    };
+    assert_eq!(expected_oauth_headers, expected_oauth_headers)
   }
 
 }
