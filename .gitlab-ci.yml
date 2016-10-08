@@ -1,5 +1,5 @@
 
-image: "scorpil/rust:1.12.0"
+image: "scorpil/rust:1.12"
 
 
 test:cargo:
