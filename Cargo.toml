@@ -7,3 +7,4 @@ authors = ["Patrick Haun <bomgar85@googlemail.com>"]
 url = "1.0"
 rand = "0.3.14"
 base64 = "0.2.1"
+rust-crypto = "^0.2"
