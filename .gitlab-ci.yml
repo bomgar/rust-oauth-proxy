@@ -1,5 +1,5 @@
 
-image: "scorpil/rust:1.12"
+image: "jimmycuadra/rust:1.12.0"
 
 
 test:cargo:
