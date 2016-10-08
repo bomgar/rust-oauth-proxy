@@ -53,8 +53,7 @@ pub fn generate_nonce() -> String {
   base64::encode(&nonce_bytes)
 }
 
-pub fn build_
-signature_base_string(method: &str,
+pub fn build_signature_base_string(method: &str,
                                    base_url: &str,
                                    request_parameters: &ParameterList)
                                    -> String {
@@ -76,12 +75,12 @@ fn hmac_sha1(key: &[u8], data: &[u8]) -> MacResult {
 }
 
 fn parameters_to_parameter_string(parameters: &Vec<(&str, &str)>) -> String {
-  let mut encoded_parameters = encode_parameters(parameters);
-  encoded_parameters.sort_by(|a, b| a.0.cmp(&b.0));
-  encoded_parameters.iter()
+  let encoded_parameters = encode_parameters(parameters);
+  let mut encoded_parameter_list = encoded_parameters.iter()
     .map(|t| t.0.to_string() + "=" + &t.1)
-    .collect::<Vec<String>>()
-    .join("&")
+    .collect::<Vec<String>>();
+  encoded_parameter_list.sort();
+  encoded_parameter_list.join("&")
 }
 fn encode_parameters(parameters: &Vec<(&str, &str)>) -> Vec<(String, String)> {
   parameters.iter()
@@ -94,7 +93,8 @@ fn encode_parameters(parameters: &Vec<(&str, &str)>) -> Vec<(String, String)> {
 }
 
 fn url_encode(string: &str) -> String {
-  form_urlencoded::byte_serialize(string.as_bytes()).collect::<String>()
+  let encoded = form_urlencoded::byte_serialize(string.as_bytes()).collect::<String>();
+  encoded.replace("+", "%20")
 }
 
 
@@ -104,11 +104,27 @@ mod tests {
 
   #[test]
   fn build_a_signature_base_string() {
-    let request_parameters = vec![("b", "1"), ("a", "2")];
-    let signature =
-      build_signature_base_string("GET", "https://test.test.org/moep", &request_parameters);
-    assert_eq!(signature,
-               "GET&https%3A%2F%2Ftest.test.org%2Fmoep&a%3D2%26b%3D1");
+    let base_url = "http://example.com/request";
+      let request_parameters = vec![
+        ("b5", "=%3D"),
+        ("a3", "a"),
+        ("c@", ""),
+        ("a2", "r b"),
+        ("c2", ""),
+        ("a3", "2 q")
+      ];
+
+
+    let expected_signature_base_string = String::new() + "GET&"
+                + "http%3A%2F%2Fexample.com%2Frequest"
+                + "&a2%3Dr%2520b%26"
+                + "a3%3D2%2520q%26" + "a3%3Da%26"
+                + "b5%3D%253D%25253D%26"
+                + "c%2540%3D%26"
+                + "c2%3D";
+
+    let signature = build_signature_base_string("GET", base_url, &request_parameters);
+    assert_eq!(signature, expected_signature_base_string);
   }
 
 
