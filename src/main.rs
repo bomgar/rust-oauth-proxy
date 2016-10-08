@@ -1,4 +1,6 @@
 extern crate url;
+extern crate rand;
+extern crate base64;
 
 mod oauth;
 

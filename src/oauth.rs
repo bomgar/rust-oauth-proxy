@@ -1,4 +1,11 @@
 use url::form_urlencoded;
+use rand;
+use rand::Rng;
+use base64;
+
+const OAUTH_VERSION: &'static str = "1.0";
+const OAUTH_SIGNATURE_METHOD: &'static str = "HMAC-SHA1";
+type ParameterList<'a> = Vec<(&'a str, &'a str)>;
 
 #[derive(Debug, PartialEq)]
 pub struct OAuthHeaders<'a> {
@@ -14,9 +21,27 @@ pub fn hello() -> &'static str {
   return "hello";
 }
 
+pub fn create_signature(method: &str, base_url: &str, query_parameters: &ParameterList, oauth_nonce: &str, oauth_timestamp: &str, oauth_consumer_key: &str) -> String {
+  let mut request_params: ParameterList = query_parameters.clone();
+  request_params.push(("oauth_nonce", oauth_nonce));
+  request_params.push(("oauth_consumer_key", oauth_consumer_key));
+  request_params.push(("oauth_timestamp", oauth_timestamp));
+  request_params.push(("oauth_version", OAUTH_VERSION));
+  request_params.push(("oauth_signature_method", OAUTH_SIGNATURE_METHOD));
+  build_signature_base_string(method, base_url, &request_params);
+  "".to_string()
+}
+
+pub fn generate_nonce() -> String {
+  let mut rng = rand::thread_rng();
+  let mut nonce_bytes: [u8; 16] = [0; 16];
+  rng.fill_bytes(&mut nonce_bytes);
+  base64::encode(&nonce_bytes)
+}
+
 pub fn build_signature_base_string(method: &str,
                                    base_url: &str,
-                                   request_parameters: &Vec<(&str, &str)>)
+                                   request_parameters: &ParameterList)
                                    -> String {
 
   let encoded_base_url = url_encode(base_url);
@@ -66,7 +91,7 @@ mod tests {
   fn should_build_correct_signature() {
     let expected_oauth_headers = OAuthHeaders {
       oauth_version: "1.0",
-      oauth_signature_method: "HMAC-SHA1",
+      oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
       oauth_nonce: "A7Dl0UO1Yl2I8EA",
       oauth_timestamp: "1475676416",
       oauth_consumer_key: "hello-key",
