@@ -17,6 +17,7 @@ use slog::DrainExt;
 use slog::Logger;
 use clap::{Arg, App, AppSettings};
 use hyper::server::{Server, Request, Response};
+use hyper::client::{Client};
 use std::net::ToSocketAddrs;
 
 fn main() {
@@ -53,13 +54,19 @@ fn main() {
   }
 }
 
-fn proxy_request(log: Logger, request: Request, response: Response) {
+fn proxy_request(log: Logger, request: Request, mut response: Response) {
   info!(log, "Incoming request";
               "from" => request.remote_addr.to_string(),
               "method" => request.method.to_string(),
               "uri" => request.uri.to_string()
       );
-  response.send(b"Hello World").unwrap();
+  let client = Client::new();
+  let mut proxy_response = client.get("http://google.com/").send().unwrap();
+  *response.status_mut() = proxy_response.status.clone();
+  *response.headers_mut() = proxy_response.headers.clone();
+  let mut response = response.start().unwrap();
+  std::io::copy(&mut proxy_response, &mut response).unwrap();
+  response.end().unwrap();
 }
 
 fn create_correlation_id() -> String {
