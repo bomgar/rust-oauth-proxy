@@ -12,7 +12,9 @@ extern crate slog_term;
 
 mod oauth;
 
+use rand::Rng;
 use slog::DrainExt;
+use slog::Logger;
 use clap::{Arg, App, AppSettings};
 use hyper::server::{Server, Request, Response};
 use std::net::ToSocketAddrs;
@@ -42,14 +44,27 @@ fn main() {
   if let Ok(server) = bind_result {
     info!(log, "Server started."; "bind_address" => bind_address.to_string());
     server.handle(move |request: Request, response: Response| {
-        info!(log, "Incoming request";
-              "from" => request.remote_addr.to_string(),
-              "method" => request.method.to_string(),
-              "uri" => request.uri.to_string()
-      );
+        let log = log.new(o!("correlation_id" => create_correlation_id()));
+        proxy_request(log, request, response);
       })
       .unwrap();
   } else {
     crit!(log, "Failed to bind server."; "bind_address" => bind_address.to_string());
   }
+}
+
+fn proxy_request(log: Logger, request: Request, response: Response) {
+  info!(log, "Incoming request";
+              "from" => request.remote_addr.to_string(),
+              "method" => request.method.to_string(),
+              "uri" => request.uri.to_string()
+      );
+  response.send(b"Hello World").unwrap();
+}
+
+fn create_correlation_id() -> String {
+  rand::thread_rng()
+    .gen_ascii_chars()
+    .take(20)
+    .collect::<String>()
 }
