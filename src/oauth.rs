@@ -1,3 +1,4 @@
+
 use url::form_urlencoded;
 use rand;
 use rand::Rng;
@@ -5,6 +6,7 @@ use base64;
 use crypto::hmac::Hmac;
 use crypto::mac::{Mac, MacResult};
 use crypto::sha1::Sha1;
+use time;
 
 const OAUTH_VERSION: &'static str = "1.0";
 const OAUTH_SIGNATURE_METHOD: &'static str = "HMAC-SHA1";
@@ -14,10 +16,10 @@ type ParameterList<'a> = Vec<(&'a str, &'a str)>;
 pub struct OAuthHeaders<'a> {
   oauth_version: &'a str,
   oauth_signature_method: &'a str,
-  oauth_nonce: &'a str,
-  oauth_timestamp: &'a str,
+  oauth_nonce: String,
+  oauth_timestamp: String,
   oauth_consumer_key: &'a str,
-  oauth_signature: &'a str,
+  oauth_signature: String,
   oauth_token: Option<&'a str>,
 }
 
@@ -30,15 +32,42 @@ impl<'a> ToString for OAuthHeaders<'a> {
             url_encode(self.oauth_version),
             url_encode(self.oauth_consumer_key),
             url_encode(self.oauth_token.unwrap_or("")),
-            url_encode(self.oauth_timestamp),
-            url_encode(self.oauth_nonce),
+            url_encode(&self.oauth_timestamp),
+            url_encode(&self.oauth_nonce),
             url_encode(self.oauth_signature_method),
-            url_encode(self.oauth_signature))
+            url_encode(&self.oauth_signature))
   }
 }
 
-pub fn hello() -> &'static str {
-  return "hello";
+pub fn create_auth_header<'a>(method: &'a str,
+                              base_url: &'a str,
+                              query_parameters: &'a ParameterList,
+                              oauth_consumer_key: &'a str,
+                              oauth_consumer_secret: &'a str,
+                              oauth_token: Option<&'a str>,
+                              oauth_token_secret: Option<&'a str>)
+                              -> OAuthHeaders<'a> {
+  let oauth_nonce = generate_nonce();
+  let oauth_timestamp = time::now_utc().to_timespec().sec.to_string();
+  let signature = create_signature(method,
+                        base_url,
+                        query_parameters,
+                        &oauth_nonce,
+                        &oauth_timestamp,
+                        oauth_consumer_key,
+                        oauth_consumer_secret,
+                        oauth_token,
+                        oauth_token_secret);
+  let oauth_headers = OAuthHeaders {
+    oauth_version: "1.0",
+    oauth_signature_method: OAUTH_SIGNATURE_METHOD,
+    oauth_nonce: oauth_nonce.to_string(),
+    oauth_timestamp: oauth_timestamp.to_string(),
+    oauth_consumer_key: oauth_consumer_key,
+    oauth_signature: signature,
+    oauth_token: oauth_token,
+  };
+  oauth_headers
 }
 
 pub fn create_signature(method: &str,
@@ -146,10 +175,10 @@ mod tests {
     let oauth_headers = OAuthHeaders {
       oauth_version: "1.0",
       oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
-      oauth_nonce: "kllo9940pd9333jh",
-      oauth_timestamp: "1191242096",
+      oauth_nonce: "kllo9940pd9333jh".to_string(),
+      oauth_timestamp: "1191242096".to_string(),
       oauth_consumer_key: "dpf43f3p2l4k3l03",
-      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=",
+      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=".to_string(),
       oauth_token: Some("nnch734d00sl2jdk"),
     };
     let expected_header = "OAuth oauth_version=\"1.0\",oauth_consumer_key=\"dpf43f3p2l4k3l03\",\
@@ -168,10 +197,10 @@ mod tests {
     let oauth_headers = OAuthHeaders {
       oauth_version: "1.0",
       oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
-      oauth_nonce: "kllo9940pd9333jh",
-      oauth_timestamp: "1191242096",
+      oauth_nonce: "kllo9940pd9333jh".to_string(),
+      oauth_timestamp: "1191242096".to_string(),
       oauth_consumer_key: "dpf43f3p2l4k3l03",
-      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=",
+      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=".to_string(),
       oauth_token: Some("nnch734d00sl2jdk"),
     };
 
@@ -184,8 +213,8 @@ mod tests {
     let signature = create_signature(method,
                                      base_url,
                                      &parameters,
-                                     oauth_headers.oauth_nonce,
-                                     oauth_headers.oauth_timestamp,
+                                     &oauth_headers.oauth_nonce,
+                                     &oauth_headers.oauth_timestamp,
                                      oauth_headers.oauth_consumer_key,
                                      "kd94hf93k423kf44",
                                      oauth_headers.oauth_token,

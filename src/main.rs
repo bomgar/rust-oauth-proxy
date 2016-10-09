@@ -3,10 +3,10 @@ extern crate rand;
 extern crate base64;
 extern crate crypto;
 extern crate clap;
+extern crate time;
 
 mod oauth;
 
-use oauth::hello;
 use clap::{Arg, App, AppSettings};
 
 fn main() {
