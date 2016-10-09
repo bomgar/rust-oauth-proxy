@@ -18,7 +18,23 @@ pub struct OAuthHeaders<'a> {
   oauth_timestamp: &'a str,
   oauth_consumer_key: &'a str,
   oauth_signature: &'a str,
-  oauth_token: Option<&'a str>
+  oauth_token: Option<&'a str>,
+}
+
+impl<'a> ToString for OAuthHeaders<'a> {
+  fn to_string(&self) -> String {
+    // maybe add empty realm
+    format!("OAuth oauth_version=\"{}\",oauth_consumer_key=\"{}\",oauth_token=\"{}\",\
+             oauth_timestamp=\"{}\",oauth_nonce=\"{}\",oauth_signature_method=\"{}\",\
+             oauth_signature=\"{}\"",
+            url_encode(self.oauth_version),
+            url_encode(self.oauth_consumer_key),
+            url_encode(self.oauth_token.unwrap_or("")),
+            url_encode(self.oauth_timestamp),
+            url_encode(self.oauth_nonce),
+            url_encode(self.oauth_signature_method),
+            url_encode(self.oauth_signature))
+  }
 }
 
 pub fn hello() -> &'static str {
@@ -35,7 +51,9 @@ pub fn create_signature(method: &str,
                         oauth_token: Option<&str>,
                         oauth_token_secret: Option<&str>)
                         -> String {
-  let key = format!("{}&{}", oauth_consumer_secret, oauth_token_secret.unwrap_or(""));
+  let key = format!("{}&{}",
+                    oauth_consumer_secret,
+                    oauth_token_secret.unwrap_or(""));
   let mut request_params: ParameterList = query_parameters.clone();
   request_params.push(("oauth_nonce", oauth_nonce));
   request_params.push(("oauth_consumer_key", oauth_consumer_key));
@@ -53,10 +71,10 @@ pub fn create_signature(method: &str,
 }
 
 pub fn generate_nonce() -> String {
-  let mut rng = rand::thread_rng();
-  let mut nonce_bytes: [u8; 16] = [0; 16];
-  rng.fill_bytes(&mut nonce_bytes);
-  base64::encode(&nonce_bytes)
+  rand::thread_rng()
+    .gen_ascii_chars()
+    .take(10)
+    .collect::<String>()
 }
 
 pub fn build_signature_base_string(method: &str,
@@ -111,37 +129,41 @@ mod tests {
   #[test]
   fn build_a_signature_base_string() {
     let base_url = "http://example.com/request";
-      let request_parameters = vec![
-        ("b5", "=%3D"),
-        ("a3", "a"),
-        ("c@", ""),
-        ("a2", "r b"),
-        ("c2", ""),
-        ("a3", "2 q")
-      ];
+    let request_parameters =
+      vec![("b5", "=%3D"), ("a3", "a"), ("c@", ""), ("a2", "r b"), ("c2", ""), ("a3", "2 q")];
 
 
-    let expected_signature_base_string = String::new() + "GET&"
-                + "http%3A%2F%2Fexample.com%2Frequest"
-                + "&a2%3Dr%2520b%26"
-                + "a3%3D2%2520q%26" + "a3%3Da%26"
-                + "b5%3D%253D%25253D%26"
-                + "c%2540%3D%26"
-                + "c2%3D";
+    let expected_signature_base_string =
+      String::new() + "GET&" + "http%3A%2F%2Fexample.com%2Frequest" + "&a2%3Dr%2520b%26" +
+      "a3%3D2%2520q%26" + "a3%3Da%26" + "b5%3D%253D%25253D%26" + "c%2540%3D%26" + "c2%3D";
 
     let signature = build_signature_base_string("GET", base_url, &request_parameters);
     assert_eq!(signature, expected_signature_base_string);
   }
 
+  #[test]
+  fn should_format_an_oauth_header() {
+    let oauth_headers = OAuthHeaders {
+      oauth_version: "1.0",
+      oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
+      oauth_nonce: "kllo9940pd9333jh",
+      oauth_timestamp: "1191242096",
+      oauth_consumer_key: "dpf43f3p2l4k3l03",
+      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=",
+      oauth_token: Some("nnch734d00sl2jdk"),
+    };
+    let expected_header = "OAuth oauth_version=\"1.0\",oauth_consumer_key=\"dpf43f3p2l4k3l03\",\
+                           oauth_token=\"nnch734d00sl2jdk\",oauth_timestamp=\"1191242096\",\
+                           oauth_nonce=\"kllo9940pd9333jh\",oauth_signature_method=\"HMAC-SHA1\",\
+                           oauth_signature=\"wPkvxykrw%2BBTdCcGqKr%2B3I%2BPsiM%3D\"";
+    assert_eq!(expected_header, oauth_headers.to_string());
+  }
 
   #[test]
   fn should_build_correct_signature() {
     let method = "POST";
     let base_url = "http://photos.example.net/photos";
-    let parameters = vec!(
-                ("file", "vacation.jpg"),
-                ("size", "original")
-    );
+    let parameters = vec![("file", "vacation.jpg"), ("size", "original")];
 
     let oauth_headers = OAuthHeaders {
       oauth_version: "1.0",
@@ -150,20 +172,13 @@ mod tests {
       oauth_timestamp: "1191242096",
       oauth_consumer_key: "dpf43f3p2l4k3l03",
       oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=",
-      oauth_token: Some("nnch734d00sl2jdk")
+      oauth_token: Some("nnch734d00sl2jdk"),
     };
 
-    // From the signature tester, POST should look like:
-    // normalized parameters:
-    // file=vacation.jpg&oauth_consumer_key=dpf43f3p2l4k3l03&oauth_nonce=kllo9940pd9333jh&oauth_signature_method=HMAC-SHA1&oauth_timestamp=1191242096&oauth_token=nnch734d00sl2jdk&oauth_version=1.0&size=original
-    // signature base string:
-    // POST&http%3A%2F%2Fphotos.example.net%2Fphotos&file%3Dvacation.jpg%26oauth_consumer_key%3Ddpf43f3p2l4k3l03%26oauth_nonce%3Dkllo9940pd9333jh%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1191242096%26oauth_token%3Dnnch734d00sl2jdk%26oauth_version%3D1.0%26size%3Doriginal
-    // signature: wPkvxykrw+BTdCcGqKr+3I+PsiM=
-    // header: OAuth
-    // realm="",oauth_version="1.0",oauth_consumer_key="dpf43f3p2l4k3l03",oauth_token="nnch734d00sl2jdk",oauth_timestamp="1191242096",oauth_nonce="kllo9940pd9333jh",oauth_signature_method="HMAC-SHA1",oauth_signature="wPkvxykrw%2BBTdCcGqKr%2B3I%2BPsiM%3D"
-
     let base_string = build_signature_base_string(method, base_url, &parameters);
-    assert_eq!(base_string, "POST&http%3A%2F%2Fphotos.example.net%2Fphotos&file%3Dvacation.jpg%26size%3Doriginal");
+    assert_eq!(base_string,
+               "POST&http%3A%2F%2Fphotos.example.net%2Fphotos&file%3Dvacation.\
+                jpg%26size%3Doriginal");
 
 
     let signature = create_signature(method,
