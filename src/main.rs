@@ -101,7 +101,7 @@ fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Resu
               "uri" => request.uri.to_string()
       );
   let client = Client::new();
-  let mut proxy_response = try!(client.get(&request.uri.to_string()).send());
+  let mut proxy_response = try!(client.request(request.method, &request.uri.to_string()).send());
   *response.status_mut() = proxy_response.status.clone();
   *response.headers_mut() = proxy_response.headers.clone();
   let mut response = try!(response.start());
