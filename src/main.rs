@@ -19,6 +19,7 @@ use clap::{Arg, App, AppSettings};
 use hyper::server::{Server, Request, Response};
 use hyper::client::Client;
 use std::net::ToSocketAddrs;
+use hyper::uri::RequestUri;
 
 use std::error::Error;
 use std::fmt;
@@ -100,6 +101,7 @@ fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Resu
               "method" => request.method.to_string(),
               "uri" => request.uri.to_string()
       );
+  let auth_header = generate_oauth_header_for_request(log, &request);
   let client = Client::new();
   let mut proxy_response = try!(client.request(request.method, &request.uri.to_string()).send());
   *response.status_mut() = proxy_response.status.clone();
@@ -108,6 +110,19 @@ fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Resu
   try!(std::io::copy(&mut proxy_response, &mut response));
   try!(response.end());
   Ok(())
+}
+
+fn generate_oauth_header_for_request(log: &Logger, request: &Request) -> Result<String, ProxyError> {
+  let method = request.method.to_string().to_uppercase();
+  if let RequestUri::AbsoluteUri(url) = request.uri.clone() {
+    let query = url.query();
+    debug!(log, ""; "query" => query, "method" => method);
+    Ok("".to_string())
+  } else {
+    Err(ProxyError{
+      message: "Require absolute url.".to_string()
+    })
+  }
 }
 
 fn create_correlation_id() -> String {
