@@ -20,6 +20,7 @@ use hyper::server::{Server, Request, Response};
 use hyper::client::Client;
 use std::net::ToSocketAddrs;
 use hyper::uri::RequestUri;
+use url::Url;
 
 use std::error::Error;
 use std::fmt;
@@ -43,18 +44,14 @@ impl Error for ProxyError {
 }
 
 impl From<hyper::Error> for ProxyError {
-  fn from(e: hyper::Error) -> ProxyError{
-    ProxyError {
-      message: format!("{}", e)
-    }
+  fn from(e: hyper::Error) -> ProxyError {
+    ProxyError { message: format!("{}", e) }
   }
 }
 
 impl From<std::io::Error> for ProxyError {
-  fn from(e: std::io::Error) -> ProxyError{
-    ProxyError {
-      message: format!("{}", e)
-    }
+  fn from(e: std::io::Error) -> ProxyError {
+    ProxyError { message: format!("{}", e) }
   }
 }
 
@@ -112,17 +109,26 @@ fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Resu
   Ok(())
 }
 
-fn generate_oauth_header_for_request(log: &Logger, request: &Request) -> Result<String, ProxyError> {
+fn generate_oauth_header_for_request(log: &Logger,
+                                     request: &Request)
+                                     -> Result<String, ProxyError> {
   let method = request.method.to_string().to_uppercase();
   if let RequestUri::AbsoluteUri(url) = request.uri.clone() {
-    let query = url.query();
-    debug!(log, ""; "query" => query, "method" => method);
+    debug!(log, ""; "query" => url.query(), "method" => method);
+    let query_parameters = extract_query_params(&url);
     Ok("".to_string())
   } else {
-    Err(ProxyError{
-      message: "Require absolute url.".to_string()
-    })
+    Err(ProxyError { message: "Require absolute url.".to_string() })
   }
+}
+
+fn extract_query_params(url: &Url) -> Vec<(String, String)> {
+  url.query_pairs()
+    .map(|pair| {
+      let (key_cow, value_cow) = pair;
+      (key_cow.into_owned(), value_cow.into_owned())
+    })
+    .collect::<Vec<_>>()
 }
 
 fn create_correlation_id() -> String {
