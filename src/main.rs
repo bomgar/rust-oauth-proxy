@@ -12,8 +12,7 @@ extern crate slog_term;
 mod oauth;
 
 use rand::Rng;
-use slog::DrainExt;
-use slog::Logger;
+use slog::{Logger, LevelFilter, Level, DrainExt};
 use clap::{Arg, App, AppSettings};
 use hyper::server::{Server, Request, Response};
 use hyper::client::Client;
@@ -67,7 +66,7 @@ struct OauthParameters{
 header! { (Authorization, "Authorization") => [String] }
 
 fn main() {
-  let matches = App::new("rust oauth proxy")
+  let matches: clap::ArgMatches = App::new("rust oauth proxy")
     .version("0.1")
     .setting(AppSettings::ColoredHelp)
     .author("Patrick Haun <bomgar85@googlemail.com>")
@@ -105,8 +104,15 @@ fn main() {
       .help("oauth token secret")
       .required(false)
       .takes_value(true))
+    .arg(Arg::with_name("verbose")
+      .long("verbose")
+      .short("v")
+      .help("debug output")
+      .required(false)
+      .takes_value(false))
     .get_matches();
   let port = matches.value_of("port").unwrap();
+  let verbose: bool = matches.is_present("verbose");
   let oauth_parameters = OauthParameters {
     oauth_consumer_key: matches.value_of("consumer-key").unwrap().to_string(),
     oauth_consumer_secret: matches.value_of("consumer-secret").unwrap().to_string(),
@@ -116,7 +122,12 @@ fn main() {
 
   let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
 
-  let log = slog::Logger::root(slog_term::streamer().full().build().fuse(), o!());
+  let stream = slog_term::streamer().full().build();
+  let log = if verbose {
+    slog::Logger::root(stream.fuse(), o!())
+  } else {
+    slog::Logger::root(LevelFilter::new(stream, Level::Info).fuse(), o!())
+  };
 
   debug!(log, "Using oauth parameters"; "oauth_parameters" => format!("{:?}", oauth_parameters));
 
