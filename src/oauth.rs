@@ -10,7 +10,7 @@ use time;
 
 const OAUTH_VERSION: &'static str = "1.0";
 const OAUTH_SIGNATURE_METHOD: &'static str = "HMAC-SHA1";
-type ParameterList<'a> = Vec<(&'a str, &'a str)>;
+type ParameterList<'a> = Vec<(String, String)>;
 
 #[derive(Debug, PartialEq)]
 pub struct OAuthHeaders<'a> {
@@ -84,17 +84,16 @@ pub fn create_signature(method: &str,
                     oauth_consumer_secret,
                     oauth_token_secret.unwrap_or(""));
   let mut request_params: ParameterList = query_parameters.clone();
-  request_params.push(("oauth_nonce", oauth_nonce));
-  request_params.push(("oauth_consumer_key", oauth_consumer_key));
-  request_params.push(("oauth_timestamp", oauth_timestamp));
-  request_params.push(("oauth_version", OAUTH_VERSION));
-  request_params.push(("oauth_signature_method", OAUTH_SIGNATURE_METHOD));
+  request_params.push(("oauth_nonce".to_string(), oauth_nonce.to_string()));
+  request_params.push(("oauth_consumer_key".to_string(), oauth_consumer_key.to_string()));
+  request_params.push(("oauth_timestamp".to_string(), oauth_timestamp.to_string()));
+  request_params.push(("oauth_version".to_string(), OAUTH_VERSION.to_string()));
+  request_params.push(("oauth_signature_method".to_string(), OAUTH_SIGNATURE_METHOD.to_string()));
   if let Some(t) = oauth_token {
-    request_params.push(("oauth_token", t));
+    request_params.push(("oauth_token".to_string(), t.to_string()));
   }
 
   let base_string = build_signature_base_string(method, base_url, &request_params);
-  println!("signing: '{}'", base_string);
   let signature = hmac_sha1(key.as_bytes(), base_string.as_bytes());
   base64::encode(&signature.code())
 }
@@ -127,7 +126,7 @@ fn hmac_sha1(key: &[u8], data: &[u8]) -> MacResult {
   hmac.result()
 }
 
-fn parameters_to_parameter_string(parameters: &Vec<(&str, &str)>) -> String {
+fn parameters_to_parameter_string(parameters: &ParameterList) -> String {
   let encoded_parameters = encode_parameters(parameters);
   let mut encoded_parameter_list = encoded_parameters.iter()
     .map(|t| t.0.to_string() + "=" + &t.1)
@@ -135,11 +134,11 @@ fn parameters_to_parameter_string(parameters: &Vec<(&str, &str)>) -> String {
   encoded_parameter_list.sort();
   encoded_parameter_list.join("&")
 }
-fn encode_parameters(parameters: &Vec<(&str, &str)>) -> Vec<(String, String)> {
+fn encode_parameters(parameters: &ParameterList) -> Vec<(String, String)> {
   parameters.iter()
     .map(|t| {
-      let key = url_encode(t.0);
-      let value = url_encode(t.1);
+      let key = url_encode(&t.0);
+      let value = url_encode(&t.1);
       (key, value)
     })
     .collect::<Vec<_>>()
@@ -159,7 +158,7 @@ mod tests {
   fn build_a_signature_base_string() {
     let base_url = "http://example.com/request";
     let request_parameters =
-      vec![("b5", "=%3D"), ("a3", "a"), ("c@", ""), ("a2", "r b"), ("c2", ""), ("a3", "2 q")];
+      vec![("b5".to_string(), "=%3D".to_string()), ("a3".to_string(), "a".to_string()), ("c@".to_string(), "".to_string()), ("a2".to_string(), "r b".to_string()), ("c2".to_string(), "".to_string()), ("a3".to_string(), "2 q".to_string())];
 
 
     let expected_signature_base_string =
@@ -192,7 +191,7 @@ mod tests {
   fn should_build_correct_signature() {
     let method = "POST";
     let base_url = "http://photos.example.net/photos";
-    let parameters = vec![("file", "vacation.jpg"), ("size", "original")];
+    let parameters = vec![("file".to_string(), "vacation.jpg".to_string()), ("size".to_string(), "original".to_string())];
 
     let oauth_headers = OAuthHeaders {
       oauth_version: "1.0",

@@ -6,6 +6,7 @@ extern crate clap;
 extern crate time;
 extern crate hyper;
 #[macro_use]
+
 extern crate slog;
 extern crate slog_term;
 
@@ -56,7 +57,7 @@ impl From<std::io::Error> for ProxyError {
 }
 
 #[derive(Debug)]
-struct OauthParameters {
+struct OauthParameters{
   oauth_consumer_key: String,
   oauth_consumer_secret: String,
   oauth_token: Option<String>,
@@ -111,8 +112,6 @@ fn main() {
     oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string())
   };
 
-
-
   let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
 
   let log = slog::Logger::root(slog_term::streamer().full().build().fuse(), o!());
@@ -125,7 +124,7 @@ fn main() {
     info!(log, "Server started."; "bind_address" => bind_address.to_string());
     server.handle(move |request: Request, response: Response| {
         let log = log.new(o!("correlation_id" => create_correlation_id()));
-        if let Err(e) = proxy_request(&log, request, response) {
+        if let Err(e) = proxy_request(&log, request, response, &oauth_parameters) {
           error!(log, "{}", e)
         }
       })
@@ -135,13 +134,17 @@ fn main() {
   }
 }
 
-fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Result<(), ProxyError> {
+fn proxy_request(log: &Logger,
+                 request: Request,
+                 mut response: Response,
+                 oauth_parameters: &OauthParameters)
+                 -> Result<(), ProxyError> {
   info!(log, "Incoming request";
               "from" => request.remote_addr.to_string(),
               "method" => request.method.to_string(),
               "uri" => request.uri.to_string()
       );
-  let auth_header = generate_oauth_header_for_request(log, &request);
+  let auth_header = generate_oauth_header_for_request(log, &request, oauth_parameters);
   let client = Client::new();
   let mut proxy_response = try!(client.request(request.method, &request.uri.to_string()).send());
   *response.status_mut() = proxy_response.status.clone();
@@ -153,13 +156,23 @@ fn proxy_request(log: &Logger, request: Request, mut response: Response) -> Resu
 }
 
 fn generate_oauth_header_for_request(log: &Logger,
-                                     request: &Request)
+                                     request: &Request,
+                                     oauth_parameters: &OauthParameters)
                                      -> Result<String, ProxyError> {
   let method = request.method.to_string().to_uppercase();
   if let RequestUri::AbsoluteUri(url) = request.uri.clone() {
-    debug!(log, ""; "query" => url.query(), "method" => method);
+    let base_url = extract_base_url(&url);
+    debug!(log, ""; "query" => url.query(), "method" => method, "base_url" => base_url);
     let query_parameters = extract_query_params(&url);
-    Ok("".to_string())
+    let oauth_headers = oauth::create_auth_header(&method,
+                              &base_url,
+                              &query_parameters,
+                              &oauth_parameters.oauth_consumer_key,
+                              &oauth_parameters.oauth_consumer_secret,
+                              oauth_parameters.oauth_token.as_ref().map(|x| &**x),
+                              oauth_parameters.oauth_token_secret.as_ref().map(|x| &**x));
+    debug!(log, "Calculated oauth headers"; "oauth headers" => oauth_headers.to_string());
+    Ok(oauth_headers.to_string())
   } else {
     Err(ProxyError { message: "Require absolute url.".to_string() })
   }
@@ -172,6 +185,19 @@ fn extract_query_params(url: &Url) -> Vec<(String, String)> {
       (key_cow.into_owned(), value_cow.into_owned())
     })
     .collect::<Vec<_>>()
+}
+
+fn extract_base_url(url: &url::Url) -> String {
+  let base_url = url.to_string().replace(&url.query().map(|s| "?".to_string() + s).unwrap_or("".to_string()), "");
+  base_url
+}
+
+
+#[test]
+fn test_extract_base_url() {
+  let url = url::Url::parse("http://is24.de/test?a=a&b=b").unwrap();
+  let base_url = extract_base_url(&url);
+  assert_eq!("http://is24.de/test", base_url)
 }
 
 fn create_correlation_id() -> String {
