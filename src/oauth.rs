@@ -26,8 +26,8 @@ pub struct OAuthHeaders<'a> {
 impl<'a> ToString for OAuthHeaders<'a> {
   fn to_string(&self) -> String {
     // maybe add empty realm
-    format!("OAuth oauth_version=\"{}\",oauth_consumer_key=\"{}\",oauth_token=\"{}\",\
-             oauth_timestamp=\"{}\",oauth_nonce=\"{}\",oauth_signature_method=\"{}\",\
+    format!("OAuth oauth_version=\"{}\", oauth_consumer_key=\"{}\", oauth_token=\"{}\", \
+             oauth_timestamp=\"{}\", oauth_nonce=\"{}\", oauth_signature_method=\"{}\", \
              oauth_signature=\"{}\"",
             url_encode(self.oauth_version),
             url_encode(self.oauth_consumer_key),

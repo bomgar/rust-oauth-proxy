@@ -4,10 +4,8 @@ extern crate base64;
 extern crate crypto;
 extern crate clap;
 extern crate time;
-extern crate hyper;
-#[macro_use]
-
-extern crate slog;
+#[macro_use] extern crate hyper;
+#[macro_use] extern crate slog;
 extern crate slog_term;
 
 
@@ -19,6 +17,8 @@ use slog::Logger;
 use clap::{Arg, App, AppSettings};
 use hyper::server::{Server, Request, Response};
 use hyper::client::Client;
+use hyper::method::Method;
+use hyper::header::Headers;
 use std::net::ToSocketAddrs;
 use hyper::uri::RequestUri;
 use url::Url;
@@ -63,6 +63,8 @@ struct OauthParameters{
   oauth_token: Option<String>,
   oauth_token_secret: Option<String>,
 }
+
+header! { (Authorization, "Authorization") => [String] }
 
 fn main() {
   let matches = App::new("rust oauth proxy")
@@ -144,15 +146,22 @@ fn proxy_request(log: &Logger,
               "method" => request.method.to_string(),
               "uri" => request.uri.to_string()
       );
-  let auth_header = generate_oauth_header_for_request(log, &request, oauth_parameters);
-  let client = Client::new();
-  let mut proxy_response = try!(client.request(request.method, &request.uri.to_string()).send());
+  let auth_header = try!(generate_oauth_header_for_request(log, &request, oauth_parameters));
+  let mut headers: Headers = request.headers.clone();
+  headers.set(Authorization(auth_header));
+  let mut proxy_response = try!(send_request(request.method, &request.uri.to_string(), headers));
   *response.status_mut() = proxy_response.status.clone();
   *response.headers_mut() = proxy_response.headers.clone();
   let mut response = try!(response.start());
   try!(std::io::copy(&mut proxy_response, &mut response));
   try!(response.end());
   Ok(())
+}
+
+fn send_request(method: Method, uri: &str, headers: Headers) -> Result<hyper::client::Response, ProxyError> {
+  let client = Client::new();
+  let response = try!(client.request(method, uri).headers(headers).send());
+  Ok(response)
 }
 
 fn generate_oauth_header_for_request(log: &Logger,
