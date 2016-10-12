@@ -1,0 +1,2 @@
+* Rust OAuth Proxy
+  A small http proxy to sign requests using OAuth 1.0.
