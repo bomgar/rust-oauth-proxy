@@ -68,7 +68,48 @@ struct OauthParameters {
 header! { (Authorization, "Authorization") => [String] }
 
 fn main() {
-  let matches: clap::ArgMatches = App::new("rust oauth proxy")
+  let matches: clap::ArgMatches = create_app().get_matches();
+  let port = matches.value_of("port").unwrap();
+  let verbose: bool = matches.is_present("verbose");
+  let oauth_parameters = build_oauth_parameters(&matches);
+  let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
+
+  let stream = slog_term::streamer().full().build();
+  let log = if verbose {
+    slog::Logger::root(stream.fuse(), o!())
+  } else {
+    slog::Logger::root(LevelFilter::new(stream, Level::Info).fuse(), o!())
+  };
+
+  debug!(log, "Using oauth parameters"; "oauth_parameters" => format!("{:?}", oauth_parameters));
+
+
+  let bind_result = Server::http(bind_address);
+  if let Ok(server) = bind_result {
+    info!(log, "Server started."; "bind_address" => bind_address.to_string());
+    server.handle(move |request: Request, response: Response| {
+        let log = log.new(o!("correlation_id" => create_correlation_id()));
+        if let Err(e) = proxy_request(&log, request, response, &oauth_parameters) {
+          error!(log, "{}", e)
+        }
+      })
+      .unwrap();
+  } else {
+    crit!(log, "Failed to bind server."; "bind_address" => bind_address.to_string());
+  }
+}
+
+fn build_oauth_parameters(matches: &clap::ArgMatches) -> OauthParameters {
+  OauthParameters {
+    oauth_consumer_key: matches.value_of("consumer-key").unwrap().to_string(),
+    oauth_consumer_secret: matches.value_of("consumer-secret").unwrap().to_string(),
+    oauth_token: matches.value_of("token").map(|s| s.to_string()),
+    oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string()),
+  }
+}
+
+fn create_app<'a>() -> App<'a, 'a> {
+  App::new("rust oauth proxy")
     .version("0.1")
     .setting(AppSettings::ColoredHelp)
     .author("Patrick Haun <bomgar85@googlemail.com>")
@@ -112,41 +153,6 @@ fn main() {
       .help("debug output")
       .required(false)
       .takes_value(false))
-    .get_matches();
-  let port = matches.value_of("port").unwrap();
-  let verbose: bool = matches.is_present("verbose");
-  let oauth_parameters = OauthParameters {
-    oauth_consumer_key: matches.value_of("consumer-key").unwrap().to_string(),
-    oauth_consumer_secret: matches.value_of("consumer-secret").unwrap().to_string(),
-    oauth_token: matches.value_of("token").map(|s| s.to_string()),
-    oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string()),
-  };
-
-  let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
-
-  let stream = slog_term::streamer().full().build();
-  let log = if verbose {
-    slog::Logger::root(stream.fuse(), o!())
-  } else {
-    slog::Logger::root(LevelFilter::new(stream, Level::Info).fuse(), o!())
-  };
-
-  debug!(log, "Using oauth parameters"; "oauth_parameters" => format!("{:?}", oauth_parameters));
-
-
-  let bind_result = Server::http(bind_address);
-  if let Ok(server) = bind_result {
-    info!(log, "Server started."; "bind_address" => bind_address.to_string());
-    server.handle(move |request: Request, response: Response| {
-        let log = log.new(o!("correlation_id" => create_correlation_id()));
-        if let Err(e) = proxy_request(&log, request, response, &oauth_parameters) {
-          error!(log, "{}", e)
-        }
-      })
-      .unwrap();
-  } else {
-    crit!(log, "Failed to bind server."; "bind_address" => bind_address.to_string());
-  }
 }
 
 fn proxy_request(log: &Logger,
