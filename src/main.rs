@@ -228,9 +228,19 @@ fn extract_query_params(url: &Url) -> Vec<(String, String)> {
     .collect::<Vec<_>>()
 }
 
+#[test]
+fn test_extract_query_params() {
+  let url = url::Url::parse("http://is24.de/test?a=a&b=c").unwrap();
+  let query_params = extract_query_params(&url);
+  assert_eq!(vec![("a".to_string(), "a".to_string()), ("b".to_string(), "c".to_string())],
+             query_params)
+}
+
 fn extract_base_url(url: &url::Url) -> String {
   let base_url = url.to_string()
-    .replace(&url.query().map(|s| "?".to_string() + s).unwrap_or("".to_string()),
+    .replace(&url.query()
+               .map(|s| "?".to_string() + s)
+               .unwrap_or("".to_string()),
              "");
   base_url
 }
