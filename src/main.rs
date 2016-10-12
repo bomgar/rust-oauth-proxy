@@ -55,13 +55,20 @@ impl From<std::io::Error> for ProxyError {
   }
 }
 
+#[derive(Debug)]
+struct OauthParameters {
+  oauth_consumer_key: String,
+  oauth_consumer_secret: String,
+  oauth_token: Option<String>,
+  oauth_token_secret: Option<String>,
+}
 
 fn main() {
   let matches = App::new("rust oauth proxy")
     .version("0.1")
     .setting(AppSettings::ColoredHelp)
     .author("Patrick Haun <bomgar85@googlemail.com>")
-    .about("provides a http proxy to authenticate requests.")
+    .about("provides a http proxy to authenticate requests using oauth.")
     .arg(Arg::with_name("port")
       .short("p")
       .long("port")
@@ -69,12 +76,48 @@ fn main() {
       .help("bind proxy to port")
       .required(true)
       .takes_value(true))
+    .arg(Arg::with_name("consumer-key")
+      .short("k")
+      .long("consumer-key")
+      .value_name("CONSUMER_KEY")
+      .help("oauth consumer key")
+      .required(true)
+      .takes_value(true))
+    .arg(Arg::with_name("consumer-secret")
+      .short("s")
+      .long("consumer-secret")
+      .value_name("CONSUMER_SECRET")
+      .help("oauth consumer secret")
+      .required(true)
+      .takes_value(true))
+    .arg(Arg::with_name("token")
+      .long("token")
+      .value_name("TOKEN")
+      .help("oauth token")
+      .required(false)
+      .takes_value(true))
+    .arg(Arg::with_name("token-secret")
+      .long("token-secret")
+      .value_name("TOKEN_SECRET")
+      .help("oauth token secret")
+      .required(false)
+      .takes_value(true))
     .get_matches();
   let port = matches.value_of("port").unwrap();
+  let oauth_parameters = OauthParameters {
+    oauth_consumer_key: matches.value_of("consumer-key").unwrap().to_string(),
+    oauth_consumer_secret: matches.value_of("consumer-secret").unwrap().to_string(),
+    oauth_token: matches.value_of("token").map(|s| s.to_string()),
+    oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string())
+  };
+
+
 
   let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
 
   let log = slog::Logger::root(slog_term::streamer().full().build().fuse(), o!());
+
+  debug!(log, "Using oauth parameters"; "oauth_parameters" => format!("{:?}", oauth_parameters));
 
 
   let bind_result = Server::http(bind_address);
