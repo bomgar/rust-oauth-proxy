@@ -180,9 +180,9 @@ mod tests {
       oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=".to_string(),
       oauth_token: Some("nnch734d00sl2jdk"),
     };
-    let expected_header = "OAuth oauth_version=\"1.0\",oauth_consumer_key=\"dpf43f3p2l4k3l03\",\
-                           oauth_token=\"nnch734d00sl2jdk\",oauth_timestamp=\"1191242096\",\
-                           oauth_nonce=\"kllo9940pd9333jh\",oauth_signature_method=\"HMAC-SHA1\",\
+    let expected_header = "OAuth oauth_version=\"1.0\", oauth_consumer_key=\"dpf43f3p2l4k3l03\", \
+                           oauth_token=\"nnch734d00sl2jdk\", oauth_timestamp=\"1191242096\", \
+                           oauth_nonce=\"kllo9940pd9333jh\", oauth_signature_method=\"HMAC-SHA1\", \
                            oauth_signature=\"wPkvxykrw%2BBTdCcGqKr%2B3I%2BPsiM%3D\"";
     assert_eq!(expected_header, oauth_headers.to_string());
   }
@@ -218,6 +218,34 @@ mod tests {
                                      "kd94hf93k423kf44",
                                      oauth_headers.oauth_token,
                                      Some("pfkkdhi9sl3r4s00"));
+    assert_eq!(signature, oauth_headers.oauth_signature)
+  }
+
+  #[test]
+  fn should_build_correct_signature_without_token() {
+    let method = "GET";
+    let base_url = "http://flatmap.ninja:8080/test";
+    let parameters = vec![("a".to_string(), "a".to_string())];
+
+    let oauth_headers = OAuthHeaders {
+      oauth_version: "1.0",
+      oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
+      oauth_nonce: "fBGRqo85Ul0xTVK".to_string(),
+      oauth_timestamp: "1476272108".to_string(),
+      oauth_consumer_key: "test-key",
+      oauth_signature: "tbAXGnbDH2mZ1DnDAURoOf4GYCs=".to_string(),
+      oauth_token: None,
+    };
+
+    let signature = create_signature(method,
+                                     base_url,
+                                     &parameters,
+                                     &oauth_headers.oauth_nonce,
+                                     &oauth_headers.oauth_timestamp,
+                                     oauth_headers.oauth_consumer_key,
+                                     "secret",
+                                     oauth_headers.oauth_token,
+                                     None);
     assert_eq!(signature, oauth_headers.oauth_signature)
   }
 
