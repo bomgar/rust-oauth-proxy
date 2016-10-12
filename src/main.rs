@@ -4,8 +4,10 @@ extern crate base64;
 extern crate crypto;
 extern crate clap;
 extern crate time;
-#[macro_use] extern crate hyper;
-#[macro_use] extern crate slog;
+#[macro_use]
+extern crate hyper;
+#[macro_use]
+extern crate slog;
 extern crate slog_term;
 
 
@@ -56,7 +58,7 @@ impl From<std::io::Error> for ProxyError {
 }
 
 #[derive(Debug)]
-struct OauthParameters{
+struct OauthParameters {
   oauth_consumer_key: String,
   oauth_consumer_secret: String,
   oauth_token: Option<String>,
@@ -117,7 +119,7 @@ fn main() {
     oauth_consumer_key: matches.value_of("consumer-key").unwrap().to_string(),
     oauth_consumer_secret: matches.value_of("consumer-secret").unwrap().to_string(),
     oauth_token: matches.value_of("token").map(|s| s.to_string()),
-    oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string())
+    oauth_token_secret: matches.value_of("token-secret").map(|s| s.to_string()),
   };
 
   let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
@@ -160,16 +162,28 @@ fn proxy_request(log: &Logger,
   let auth_header = try!(generate_oauth_header_for_request(log, &request, oauth_parameters));
   let mut headers: Headers = request.headers.clone();
   headers.set(Authorization(auth_header));
-  let mut proxy_response = try!(send_request(request.method, &request.uri.to_string(), headers));
-  *response.status_mut() = proxy_response.status.clone();
-  *response.headers_mut() = proxy_response.headers.clone();
-  let mut response = try!(response.start());
-  try!(std::io::copy(&mut proxy_response, &mut response));
-  try!(response.end());
-  Ok(())
+  match send_request(request.method, &request.uri.to_string(), headers) {
+    Ok(mut proxy_response) => {
+      *response.status_mut() = proxy_response.status.clone();
+      *response.headers_mut() = proxy_response.headers.clone();
+      let mut response = try!(response.start());
+      try!(std::io::copy(&mut proxy_response, &mut response));
+      try!(response.end());
+      Ok(())
+    }
+    Err(e) => {
+      error!(log, "Request to remote server failed {}", e);
+      *response.status_mut() = hyper::status::StatusCode::InternalServerError;
+      Ok(())
+
+    }
+  }
 }
 
-fn send_request(method: Method, uri: &str, headers: Headers) -> Result<hyper::client::Response, ProxyError> {
+fn send_request(method: Method,
+                uri: &str,
+                headers: Headers)
+                -> Result<hyper::client::Response, ProxyError> {
   let client = Client::new();
   let response = try!(client.request(method, uri).headers(headers).send());
   Ok(response)
@@ -184,13 +198,14 @@ fn generate_oauth_header_for_request(log: &Logger,
     let base_url = extract_base_url(&url);
     debug!(log, ""; "query" => url.query(), "method" => method, "base_url" => base_url);
     let query_parameters = extract_query_params(&url);
-    let oauth_headers = oauth::create_auth_header(&method,
-                              &base_url,
-                              &query_parameters,
-                              &oauth_parameters.oauth_consumer_key,
-                              &oauth_parameters.oauth_consumer_secret,
-                              oauth_parameters.oauth_token.as_ref().map(|x| &**x),
-                              oauth_parameters.oauth_token_secret.as_ref().map(|x| &**x));
+    let oauth_headers =
+      oauth::create_auth_header(&method,
+                                &base_url,
+                                &query_parameters,
+                                &oauth_parameters.oauth_consumer_key,
+                                &oauth_parameters.oauth_consumer_secret,
+                                oauth_parameters.oauth_token.as_ref().map(|x| &**x),
+                                oauth_parameters.oauth_token_secret.as_ref().map(|x| &**x));
     debug!(log, "Calculated oauth headers"; "oauth headers" => oauth_headers.to_string());
     Ok(oauth_headers.to_string())
   } else {
@@ -208,7 +223,9 @@ fn extract_query_params(url: &Url) -> Vec<(String, String)> {
 }
 
 fn extract_base_url(url: &url::Url) -> String {
-  let base_url = url.to_string().replace(&url.query().map(|s| "?".to_string() + s).unwrap_or("".to_string()), "");
+  let base_url = url.to_string()
+    .replace(&url.query().map(|s| "?".to_string() + s).unwrap_or("".to_string()),
+             "");
   base_url
 }
 
