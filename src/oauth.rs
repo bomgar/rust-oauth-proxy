@@ -26,12 +26,12 @@ pub struct OAuthHeaders<'a> {
 impl<'a> ToString for OAuthHeaders<'a> {
   fn to_string(&self) -> String {
     // maybe add empty realm
-    format!("OAuth oauth_version=\"{}\", oauth_consumer_key=\"{}\", oauth_token=\"{}\", \
+    format!("OAuth oauth_version=\"{}\", oauth_consumer_key=\"{}\", {}\
              oauth_timestamp=\"{}\", oauth_nonce=\"{}\", oauth_signature_method=\"{}\", \
              oauth_signature=\"{}\"",
             url_encode(self.oauth_version),
             url_encode(self.oauth_consumer_key),
-            url_encode(self.oauth_token.unwrap_or("")),
+            &self.oauth_token.map(| s | format!("oauth_token=\"{}\", ", url_encode(s))).unwrap_or("".to_string()),
             url_encode(&self.oauth_timestamp),
             url_encode(&self.oauth_nonce),
             url_encode(self.oauth_signature_method),
@@ -182,6 +182,24 @@ mod tests {
     };
     let expected_header = "OAuth oauth_version=\"1.0\", oauth_consumer_key=\"dpf43f3p2l4k3l03\", \
                            oauth_token=\"nnch734d00sl2jdk\", oauth_timestamp=\"1191242096\", \
+                           oauth_nonce=\"kllo9940pd9333jh\", oauth_signature_method=\"HMAC-SHA1\", \
+                           oauth_signature=\"wPkvxykrw%2BBTdCcGqKr%2B3I%2BPsiM%3D\"";
+    assert_eq!(expected_header, oauth_headers.to_string());
+  }
+
+  #[test]
+  fn should_format_an_oauth_header_without_token() {
+    let oauth_headers = OAuthHeaders {
+      oauth_version: "1.0",
+      oauth_signature_method: super::OAUTH_SIGNATURE_METHOD,
+      oauth_nonce: "kllo9940pd9333jh".to_string(),
+      oauth_timestamp: "1191242096".to_string(),
+      oauth_consumer_key: "dpf43f3p2l4k3l03",
+      oauth_signature: "wPkvxykrw+BTdCcGqKr+3I+PsiM=".to_string(),
+      oauth_token: None,
+    };
+    let expected_header = "OAuth oauth_version=\"1.0\", oauth_consumer_key=\"dpf43f3p2l4k3l03\", \
+                           oauth_timestamp=\"1191242096\", \
                            oauth_nonce=\"kllo9940pd9333jh\", oauth_signature_method=\"HMAC-SHA1\", \
                            oauth_signature=\"wPkvxykrw%2BBTdCcGqKr%2B3I%2BPsiM%3D\"";
     assert_eq!(expected_header, oauth_headers.to_string());
