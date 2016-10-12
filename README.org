@@ -1,2 +1,5 @@
 * Rust OAuth Proxy
+
+  [[https://travis-ci.org/bomgar/rust-oauth-proxy][file:https://travis-ci.org/bomgar/rust-oauth-proxy.svg?branch=master]]
+
   A small http proxy to sign requests using OAuth 1.0.
