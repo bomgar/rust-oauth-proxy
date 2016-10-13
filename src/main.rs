@@ -20,7 +20,6 @@ use hyper::server::{Server, Request, Response};
 use hyper::client::Client;
 use hyper::method::Method;
 use hyper::header::Headers;
-use std::net::ToSocketAddrs;
 use hyper::uri::RequestUri;
 use url::Url;
 
@@ -72,7 +71,7 @@ fn main() {
   let port = matches.value_of("port").unwrap();
   let verbose: bool = matches.is_present("verbose");
   let oauth_parameters = build_oauth_parameters(&matches);
-  let bind_address = format!("0.0.0.0:{}", port).to_socket_addrs().unwrap().collect::<Vec<_>>()[0];
+  let bind_address: &str = &format!("0.0.0.0:{}", port);
 
   let stream = slog_term::streamer().full().build();
   let log = if verbose {
@@ -83,8 +82,7 @@ fn main() {
 
   debug!(log, "Using oauth parameters"; "oauth_parameters" => format!("{:?}", oauth_parameters));
 
-
-  let bind_result = Server::http(bind_address);
+  let bind_result = Server::http(&bind_address);
   if let Ok(server) = bind_result {
     info!(log, "Server started."; "bind_address" => bind_address.to_string());
     server.handle(move |request: Request, response: Response| {
