@@ -3,3 +3,13 @@
   [[https://travis-ci.org/bomgar/rust-oauth-proxy][file:https://travis-ci.org/bomgar/rust-oauth-proxy.svg?branch=master]]
 
   A small http proxy to sign requests using OAuth 1.0.
+
+** Usage
+  Provide a consumer key and secret. See ~help~ for details.
+
+  #+BEGIN_SRC shell-script
+  rust-oauth-proxy --help
+  #+END_SRC
+
+** Curl
+   Add the proxy to your ~curl~ command using the ~-x~ parameter.
