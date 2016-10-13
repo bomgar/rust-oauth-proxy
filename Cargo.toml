@@ -1,6 +1,6 @@
 [package]
 name = "rust-oauth-proxy"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Patrick Haun <bomgar85@googlemail.com>"]
 description = "A small http proxy to sign requests using OAuth 1.0"
 repository = "https://github.com/bomgar/rust-oauth-proxy"
