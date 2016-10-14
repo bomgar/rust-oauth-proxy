@@ -9,6 +9,14 @@
    #+BEGIN_SRC shell-script
    cargo install rust-oauth-proxy
    #+END_SRC
+
+   On OS X you might need this
+
+   #+BEGIN_SRC shell-script
+   brew install openssl
+   export OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl/include
+   #+END_SRC
+
 ** Usage
   Provide a consumer key and secret. See ~help~ for details.
 
