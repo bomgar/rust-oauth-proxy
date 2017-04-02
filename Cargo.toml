@@ -10,10 +10,10 @@ license = "Apache-2.0"
 
 [dependencies]
 url = "1.0"
-rand = "0.3.14"
-base64 = "0.2.1"
+rand = "0.3"
+base64 = "0.2"
 rust-crypto = "^0.2"
-clap="2.14.0"
+clap="2.22"
 time = "0.1.35"
 hyper = "0.9"
 slog = "1"
